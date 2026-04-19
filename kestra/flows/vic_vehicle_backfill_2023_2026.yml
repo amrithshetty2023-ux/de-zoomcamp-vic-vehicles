@@ -26,14 +26,14 @@ tasks:
 
       html = Path("page.html").read_text()
 
-      csv_urls = re.findall(
-          r'https://opendata\.transport\.vic\.gov\.au/dataset/[^"\']+/resource/[^"\']+/download/[^"\']+\.csv',
+      urls = re.findall(
+          r'https://opendata\.transport\.vic\.gov\.au/dataset/[^"\']+/resource/[^"\']+/download/[^"\']+\.(?:csv|zip)',
           html,
           flags=re.IGNORECASE
       )
 
       monthly_2025_2026 = []
-      for url in csv_urls:
+      for url in urls:
           lower = url.lower()
           if "monthly_new_vehicle_registration" in lower and (
               "_2025.csv" in lower or "_2026.csv" in lower

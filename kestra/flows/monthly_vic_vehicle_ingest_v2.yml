@@ -42,7 +42,26 @@ tasks:
       if not monthly:
           raise Exception("No monthly CSV download URL found on dataset page")
 
-      latest_url = monthly[0]
+      month_map = {
+          "january": 1, "february": 2, "march": 3, "april": 4,
+          "may": 5, "june": 6, "july": 7, "august": 8,
+          "september": 9, "october": 10, "november": 11, "december": 12
+      }
+
+      dated = []
+      for url in monthly:
+          filename = url.split("/")[-1].lower()
+          m = re.search(
+              r'monthly_new_vehicle_registration_([a-z]+)_(\d{4})\.csv',
+              filename
+          )
+          if m and m.group(1) in month_map:
+              dated.append(((int(m.group(2)), month_map[m.group(1)]), url))
+
+      if not dated:
+          raise Exception("Could not parse month/year from monthly CSV filenames")
+
+      latest_url = max(dated, key=lambda x: x[0])[1]
       filename = latest_url.split("/")[-1]
 
       Path("latest_url.txt").write_text(latest_url)

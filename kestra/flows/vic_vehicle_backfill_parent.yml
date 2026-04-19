@@ -1,0 +1,66 @@
+id: vic_vehicle_backfill_parent
+namespace: zoomcamp.vic
+
+inputs:
+  - id: bucket
+    type: STRING
+    defaults: dtc-de-course-capstone-2026-vic-vehicle-lake
+  - id: project_id
+    type: STRING
+    defaults: dtc-de-course-capstone-2026
+  - id: dataset
+    type: STRING
+    defaults: vic_vehicle_analytics
+  - id: prefix
+    type: STRING
+    defaults: raw/monthly_new_vehicle_registration/
+
+tasks:
+  - id: list_monthly_files
+    type: io.kestra.plugin.gcp.gcs.List
+    from: "gs://{{ inputs.bucket }}/{{ inputs.prefix }}"
+    listingType: RECURSIVE
+    filter: FILES
+    regExp: ".*\\.csv$"
+
+  - id: build_file_urls
+    type: io.kestra.plugin.scripts.python.Script
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    outputFiles:
+      - files.json
+    script: |
+      import json
+      from pathlib import Path
+
+      blobs = {{ outputs.list_monthly_files.blobs | toJson }}
+      bucket = "{{ inputs.bucket }}"
+      urls = []
+
+      for b in blobs:
+          if isinstance(b, dict):
+              name = b.get("name")
+              if name:
+                  urls.append(f"gs://{bucket}/{name}")
+          elif isinstance(b, str):
+              if b.startswith("gs://"):
+                  urls.append(b)
+              else:
+                  urls.append(f"gs://{bucket}/{b}")
+
+      Path("files.json").write_text(json.dumps(urls))
+
+  - id: each_file
+    type: io.kestra.plugin.core.flow.ForEach
+    values: "{{ fromJson(read(outputs.build_file_urls.outputFiles['files.json'])) }}"
+    tasks:
+      - id: run_monthly_load_flow
+        type: io.kestra.plugin.core.flow.Subflow
+        namespace: zoomcamp.vic
+        flowId: vic_vehicle_load_monthly_to_bq
+        wait: true
+        inputs:
+          file_url: "{{ taskrun.value }}"
+          bucket: "{{ inputs.bucket }}"
+          project_id: "{{ inputs.project_id }}"
+          dataset: "{{ inputs.dataset }}"
