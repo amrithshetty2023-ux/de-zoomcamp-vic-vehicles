@@ -1,0 +1,165 @@
+id: vic_vehicle_load_monthly_to_bq
+namespace: zoomcamp.vic
+
+inputs:
+  - id: file_url
+    type: STRING
+  - id: bucket
+    type: STRING
+  - id: project_id
+    type: STRING
+    defaults: dtc-de-course-capstone-2026
+  - id: dataset
+    type: STRING
+    defaults: vic_vehicle_analytics
+
+tasks:
+  - id: normalize_file_path
+    type: io.kestra.plugin.core.debug.Return
+    format: "{{ inputs.file_url }}"
+
+  - id: extract_file_metadata
+    type: io.kestra.plugin.scripts.python.Script
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    outputFiles:
+      - metadata.json
+    script: |
+      import json, re
+      from pathlib import Path
+
+      file_url = """{{ inputs.file_url }}"""
+      file_name = file_url.split("/")[-1].strip()
+
+      m = re.search(r"([a-z]+)_(\d{4})\.csv$", file_name.lower())
+      if not m:
+          raise Exception(f"Could not parse month/year from file name: {file_name}")
+
+      month_name = m.group(1)
+      file_year = int(m.group(2))
+
+      month_lookup = {
+          "january": "01",
+          "february": "02",
+          "march": "03",
+          "april": "04",
+          "may": "05",
+          "june": "06",
+          "july": "07",
+          "august": "08",
+          "september": "09",
+          "october": "10",
+          "november": "11",
+          "december": "12"
+      }
+
+      if month_name not in month_lookup:
+          raise Exception(f"Invalid month name in file: {month_name}")
+
+      registration_month = f"{file_year}-{month_lookup[month_name]}-01"
+
+      Path("metadata.json").write_text(json.dumps({
+          "file_name": file_name,
+          "month_name": month_name,
+          "file_year": file_year,
+          "registration_month": registration_month
+      }))
+
+  - id: recreate_tmp_load_table
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      CREATE OR REPLACE TABLE `{{ inputs.project_id }}.{{ inputs.dataset }}.tmp_monthly_vehicle_registration_load` (
+        CD_MAKE_VEH STRING,
+        CD_MODEL_VEH STRING,
+        CD_CLR_BDY_VEH_P STRING,
+        NB_YEAR_MFC_VEH INT64,
+        TOTAL INT64
+      );
+
+  - id: load_csv_to_tmp
+    type: io.kestra.plugin.gcp.bigquery.LoadFromGcs
+    destinationTable: "{{ inputs.project_id }}.{{ inputs.dataset }}.tmp_monthly_vehicle_registration_load"
+    from:
+      - "{{ inputs.file_url }}"
+    format: CSV
+    csvOptions:
+      skipLeadingRows: 1
+      allowQuotedNewLines: true
+      allowJaggedRows: true
+    writeDisposition: WRITE_TRUNCATE
+    schema:
+      fields:
+        - name: CD_MAKE_VEH
+          type: STRING
+        - name: CD_MODEL_VEH
+          type: STRING
+        - name: CD_CLR_BDY_VEH_P
+          type: STRING
+        - name: NB_YEAR_MFC_VEH
+          type: INT64
+        - name: TOTAL
+          type: INT64
+
+  - id: create_raw_table_if_not_exists
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      CREATE TABLE IF NOT EXISTS `{{ inputs.project_id }}.{{ inputs.dataset }}.ext_monthly_vehicle_registration_raw` (
+        source_file STRING,
+        month_name STRING,
+        file_year INT64,
+        registration_month DATE,
+        loaded_at TIMESTAMP,
+        CD_MAKE_VEH STRING,
+        CD_MODEL_VEH STRING,
+        CD_CLR_BDY_VEH_P STRING,
+        NB_YEAR_MFC_VEH INT64,
+        TOTAL INT64
+      );
+
+  - id: insert_into_raw
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      INSERT INTO `{{ inputs.project_id }}.{{ inputs.dataset }}.ext_monthly_vehicle_registration_raw`
+      (
+        source_file,
+        month_name,
+        file_year,
+        registration_month,
+        loaded_at,
+        CD_MAKE_VEH,
+        CD_MODEL_VEH,
+        CD_CLR_BDY_VEH_P,
+        NB_YEAR_MFC_VEH,
+        TOTAL
+      )
+      SELECT
+        '{{ fromJson(read(outputs.extract_file_metadata.outputFiles["metadata.json"])).file_name }}' AS source_file,
+        '{{ fromJson(read(outputs.extract_file_metadata.outputFiles["metadata.json"])).month_name }}' AS month_name,
+        {{ fromJson(read(outputs.extract_file_metadata.outputFiles["metadata.json"])).file_year }} AS file_year,
+        DATE '{{ fromJson(read(outputs.extract_file_metadata.outputFiles["metadata.json"])).registration_month }}' AS registration_month,
+        CURRENT_TIMESTAMP() AS loaded_at,
+        CD_MAKE_VEH,
+        CD_MODEL_VEH,
+        CD_CLR_BDY_VEH_P,
+        NB_YEAR_MFC_VEH,
+        TOTAL
+      FROM `{{ inputs.project_id }}.{{ inputs.dataset }}.tmp_monthly_vehicle_registration_load`;
+
+  - id: rebuild_staging
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      CREATE OR REPLACE TABLE `{{ inputs.project_id }}.{{ inputs.dataset }}.stg_monthly_vehicle_registration` AS
+      SELECT
+        source_file,
+        month_name,
+        file_year AS registration_year,
+        registration_month,
+        EXTRACT(MONTH FROM registration_month) AS registration_month_number,
+        FORMAT_DATE('%B', registration_month) AS registration_month_name,
+        loaded_at,
+        CD_MAKE_VEH AS make_vehicle,
+        CD_MODEL_VEH AS model_vehicle,
+        CD_CLR_BDY_VEH_P AS body_color,
+        NB_YEAR_MFC_VEH AS manufacture_year,
+        TOTAL AS total
+      FROM `{{ inputs.project_id }}.{{ inputs.dataset }}.ext_monthly_vehicle_registration_raw`;

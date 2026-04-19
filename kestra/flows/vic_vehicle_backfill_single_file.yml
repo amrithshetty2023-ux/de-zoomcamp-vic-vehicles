@@ -4,22 +4,181 @@ namespace: zoomcamp.vic
 inputs:
   - id: file_url
     type: STRING
-    required: true
-
   - id: bucket
     type: STRING
-    required: true
 
 tasks:
-  - id: log_file
-    type: io.kestra.plugin.core.log.Log
-    message: "Processing {{ inputs.file_url }}"
-
-  - id: download_file
+  - id: download_source
     type: io.kestra.plugin.core.http.Download
     uri: "{{ inputs.file_url }}"
 
-  - id: upload_file
-    type: io.kestra.plugin.gcp.gcs.Upload
-    from: "{{ outputs.download_file.uri }}"
-    to: "gs://{{ inputs.bucket }}/raw/monthly_new_vehicle_registration/{{ inputs.file_url | substringAfterLast('/') }}"
+  - id: route_by_extension
+    type: io.kestra.plugin.core.flow.If
+    condition: "{{ inputs.file_url | lower | endsWith('.zip') }}"
+    then:
+      - id: unzip_archive
+        type: io.kestra.plugin.compress.ArchiveDecompress
+        from: "{{ outputs.download_source.uri }}"
+        algorithm: ZIP
+
+      - id: build_csv_file_list
+        type: io.kestra.plugin.scripts.python.Script
+        taskRunner:
+          type: io.kestra.plugin.core.runner.Process
+        outputFiles:
+          - csv_files.json
+        script: |
+          import json
+          from pathlib import Path
+
+          files = {{ outputs.unzip_archive.files | toJson }}
+          csv_files = sorted([name for name in files.keys() if name.lower().endswith(".csv")])
+
+          if not csv_files:
+              raise Exception("No CSV files found inside ZIP archive")
+
+          Path("csv_files.json").write_text(json.dumps(csv_files))
+
+      - id: clean_and_upload_each_csv
+        type: io.kestra.plugin.core.flow.ForEach
+        values: "{{ fromJson(read(outputs.build_csv_file_list.outputFiles['csv_files.json'])) }}"
+        tasks:
+          - id: clean_csv
+            type: io.kestra.plugin.scripts.python.Script
+            taskRunner:
+              type: io.kestra.plugin.core.runner.Process
+            inputFiles:
+              input.csv: "{{ outputs.unzip_archive.files[taskrun.value] }}"
+            outputFiles:
+              - cleaned.csv
+              - rejected_rows.csv
+            script: |
+              import csv
+              from pathlib import Path
+
+              src = Path("input.csv")
+              cleaned = Path("cleaned.csv")
+              rejected = Path("rejected_rows.csv")
+
+              def is_blank_row(row):
+                  return all((cell is None or str(cell).strip() == "") for cell in row)
+
+              with src.open("r", newline="", encoding="utf-8", errors="replace") as f_in, \
+                   cleaned.open("w", newline="", encoding="utf-8") as f_out, \
+                   rejected.open("w", newline="", encoding="utf-8") as f_rej:
+
+                  reader = csv.reader(f_in)
+                  writer = csv.writer(f_out)
+                  rej_writer = csv.writer(f_rej)
+
+                  header = None
+                  header_row_number = 0
+
+                  for i, row in enumerate(reader, start=1):
+                      if is_blank_row(row):
+                          continue
+                      header = row
+                      header_row_number = i
+                      break
+
+                  if header is None:
+                      raise Exception("CSV is empty or only contains blank rows")
+
+                  expected_cols = len(header)
+                  writer.writerow(header)
+                  rej_writer.writerow(["row_number", "reason", "raw_row"])
+
+                  for i, row in enumerate(reader, start=header_row_number + 1):
+                      if is_blank_row(row):
+                          continue
+
+                      if len(row) != expected_cols:
+                          rej_writer.writerow([
+                              i,
+                              f"expected {expected_cols} cols got {len(row)}",
+                              "|".join(row)
+                          ])
+                          continue
+
+                      writer.writerow(row)
+
+          - id: upload_cleaned_csv
+            type: io.kestra.plugin.gcp.gcs.Upload
+            from: "{{ currentEachOutput(outputs.clean_csv).outputFiles['cleaned.csv'] }}"
+            to: "gs://{{ inputs.bucket }}/raw/monthly_new_vehicle_registration/{{ taskrun.value }}"
+
+    else:
+      - id: get_direct_csv_name
+        type: io.kestra.plugin.scripts.python.Script
+        taskRunner:
+          type: io.kestra.plugin.core.runner.Process
+        outputFiles:
+          - file_name.txt
+        script: |
+          from pathlib import Path
+          url = """{{ inputs.file_url }}"""
+          Path("file_name.txt").write_text(url.split("/")[-1])
+
+      - id: clean_direct_csv
+        type: io.kestra.plugin.scripts.python.Script
+        taskRunner:
+          type: io.kestra.plugin.core.runner.Process
+        inputFiles:
+          input.csv: "{{ outputs.download_source.uri }}"
+        outputFiles:
+          - cleaned.csv
+          - rejected_rows.csv
+        script: |
+          import csv
+          from pathlib import Path
+
+          src = Path("input.csv")
+          cleaned = Path("cleaned.csv")
+          rejected = Path("rejected_rows.csv")
+
+          def is_blank_row(row):
+              return all((cell is None or str(cell).strip() == "") for cell in row)
+
+          with src.open("r", newline="", encoding="utf-8", errors="replace") as f_in, \
+               cleaned.open("w", newline="", encoding="utf-8") as f_out, \
+               rejected.open("w", newline="", encoding="utf-8") as f_rej:
+
+              reader = csv.reader(f_in)
+              writer = csv.writer(f_out)
+              rej_writer = csv.writer(f_rej)
+
+              header = None
+              header_row_number = 0
+
+              for i, row in enumerate(reader, start=1):
+                  if is_blank_row(row):
+                      continue
+                  header = row
+                  header_row_number = i
+                  break
+
+              if header is None:
+                  raise Exception("CSV is empty or only contains blank rows")
+
+              expected_cols = len(header)
+              writer.writerow(header)
+              rej_writer.writerow(["row_number", "reason", "raw_row"])
+
+              for i, row in enumerate(reader, start=header_row_number + 1):
+                  if is_blank_row(row):
+                      continue
+
+                  if len(row) != expected_cols:
+                      rej_writer.writerow([
+                          i,
+                          f"expected {expected_cols} cols got {len(row)}",
+                          "|".join(row)
+                      ])
+                      continue
+
+                  writer.writerow(row)
+
+      - id: upload_cleaned_direct_csv
+        type: io.kestra.plugin.gcp.gcs.Upload
+        from: "{{ outputs.clean_direct_csv.outputFiles['cleaned.csv'] }}"
+        to: "gs://{{ inputs.bucket }}/raw/monthly_new_vehicle_registration/{{ read(outputs.get_direct_csv_name.outputFiles['file_name.txt']) | trim }}"
