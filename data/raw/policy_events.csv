@@ -1,0 +1,4 @@
+event_date,event_name,event_type,effect_direction
+2022-07-01,Electric Car Discount starts,policy,lower_cost
+2025-01-01,NVES starts,policy,supply_shift
+2025-07-01,NVES compliance begins,policy,compliance

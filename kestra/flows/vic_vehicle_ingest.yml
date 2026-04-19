@@ -1,0 +1,24 @@
+id: vic_vehicle_ingest
+namespace: zoomcamp.vic
+
+description: |
+  Victoria vehicle registration ingestion pipeline
+
+variables:
+  gcs_bucket: "dtc-de-course-capstone-2026-vic-vehicle-lake"
+  bq_dataset: "vic_vehicle_analytics"
+  project_id: "dtc-de-course-capstone-2026"
+  gcp_location: "US"
+
+tasks:
+  - id: test_gcs_access
+    type: io.kestra.plugin.gcp.gcs.Ls
+    serviceAccount: "{{ secret('GCP_SERVICE_ACCOUNT') }}"
+    bucket: "{{ vars.gcs_bucket }}"
+
+  - id: test_bq_access
+    type: io.kestra.plugin.gcp.bigquery.Query
+    serviceAccount: "{{ secret('GCP_SERVICE_ACCOUNT') }}"
+    projectId: "{{ vars.project_id }}"
+    sql: |
+      SELECT 'BigQuery access confirmed' as test

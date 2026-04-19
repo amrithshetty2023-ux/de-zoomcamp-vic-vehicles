@@ -1,0 +1,7 @@
+project_id      = "dtc-de-course-capstone-2026"
+bucket_name     = "dtc-de-course-capstone-2026-vic-vehicle-lake"
+bq_dataset      = "vic_vehicle_analytics"
+region          = "us-central1"
+bucket_location = "US"
+bq_location     = "US"
+storage_class   = "STANDARD"
