@@ -1,0 +1,58 @@
+id: monthly_vic_vehicle_ingest_v2
+namespace: zoomcamp.vic
+
+variables:
+  bucket: "dtc-de-course-capstone-2026-vic-vehicle-lake"
+  dataset_page: "https://opendata.transport.vic.gov.au/dataset/monthly-new-vehicle-registration"
+
+triggers:
+  - id: monthly_schedule
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "0 6 5 * *"
+
+tasks:
+  - id: fetch_dataset_page
+    type: io.kestra.plugin.core.http.Request
+    uri: "{{ vars.dataset_page }}"
+    method: GET
+
+  - id: extract_latest_download_url
+    type: io.kestra.plugin.scripts.python.Script
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    inputFiles:
+      page.html: "{{ outputs.fetch_dataset_page.body }}"
+    outputFiles:
+      - latest_url.txt
+      - target_name.txt
+    script: |
+      import re
+      from pathlib import Path
+
+      html = Path("page.html").read_text()
+
+      matches = re.findall(
+          r'https://opendata\.transport\.vic\.gov\.au/dataset/[^"\']+/resource/[^"\']+/download/[^"\']+\.csv',
+          html,
+          flags=re.IGNORECASE
+      )
+
+      monthly = [m for m in matches if "monthly_new_vehicle_registration" in m.lower()]
+
+      if not monthly:
+          raise Exception("No monthly CSV download URL found on dataset page")
+
+      latest_url = monthly[0]
+      filename = latest_url.split("/")[-1]
+
+      Path("latest_url.txt").write_text(latest_url)
+      Path("target_name.txt").write_text(filename)
+
+  - id: download_latest_csv
+    type: io.kestra.plugin.core.http.Download
+    uri: "{{ read(outputs.extract_latest_download_url.outputFiles['latest_url.txt']) | trim }}"
+
+  - id: upload_to_gcs
+    type: io.kestra.plugin.gcp.gcs.Upload
+    from: "{{ outputs.download_latest_csv.uri }}"
+    to: "gs://{{ vars.bucket }}/raw/monthly_new_vehicle_registration/{{ read(outputs.extract_latest_download_url.outputFiles['target_name.txt']) | trim }}"

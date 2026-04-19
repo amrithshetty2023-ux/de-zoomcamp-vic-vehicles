@@ -1,0 +1,25 @@
+id: vic_vehicle_backfill_single_file
+namespace: zoomcamp.vic
+
+inputs:
+  - id: file_url
+    type: STRING
+    required: true
+
+  - id: bucket
+    type: STRING
+    required: true
+
+tasks:
+  - id: log_file
+    type: io.kestra.plugin.core.log.Log
+    message: "Processing {{ inputs.file_url }}"
+
+  - id: download_file
+    type: io.kestra.plugin.core.http.Download
+    uri: "{{ inputs.file_url }}"
+
+  - id: upload_file
+    type: io.kestra.plugin.gcp.gcs.Upload
+    from: "{{ outputs.download_file.uri }}"
+    to: "gs://{{ inputs.bucket }}/raw/monthly_new_vehicle_registration/{{ inputs.file_url | substringAfterLast('/') }}"

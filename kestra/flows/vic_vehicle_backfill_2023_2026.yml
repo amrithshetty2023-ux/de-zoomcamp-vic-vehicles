@@ -1,0 +1,65 @@
+id: vic_vehicle_backfill_2023_2026
+namespace: zoomcamp.vic
+
+variables:
+  bucket: "dtc-de-course-capstone-2026-vic-vehicle-lake"
+  dataset_page: "https://opendata.transport.vic.gov.au/dataset/monthly-new-vehicle-registration"
+
+tasks:
+  - id: fetch_dataset_page
+    type: io.kestra.plugin.core.http.Request
+    uri: "{{ vars.dataset_page }}"
+    method: GET
+
+  - id: extract_backfill_urls
+    type: io.kestra.plugin.scripts.python.Script
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    inputFiles:
+      page.html: "{{ outputs.fetch_dataset_page.body }}"
+    outputFiles:
+      - urls.json
+    script: |
+      import re
+      import json
+      from pathlib import Path
+
+      html = Path("page.html").read_text()
+
+      csv_urls = re.findall(
+          r'https://opendata\.transport\.vic\.gov\.au/dataset/[^"\']+/resource/[^"\']+/download/[^"\']+\.csv',
+          html,
+          flags=re.IGNORECASE
+      )
+
+      monthly_2025_2026 = []
+      for url in csv_urls:
+          lower = url.lower()
+          if "monthly_new_vehicle_registration" in lower and (
+              "_2025.csv" in lower or "_2026.csv" in lower
+          ):
+              monthly_2025_2026.append(url)
+
+      all_urls = [
+          "https://opendata.transport.vic.gov.au/dataset/6a84d623-0e7f-4996-aa5c-090825e3ba7e/resource/b94f03f0-66b4-44ca-9194-aea97aa5ab82/download/monthly_new_vehicle_registration_2023.zip",
+          "https://opendata.transport.vic.gov.au/dataset/6a84d623-0e7f-4996-aa5c-090825e3ba7e/resource/11b4f504-c4a8-4ff9-a421-78c237fd9708/download/monthly_new_vehicle_registration_2024.zip",
+          *sorted(set(monthly_2025_2026))
+      ]
+
+      if len(all_urls) < 3:
+          raise Exception("Backfill URL extraction looks incomplete")
+
+      Path("urls.json").write_text(json.dumps(all_urls, indent=2))
+
+  - id: each_file
+    type: io.kestra.plugin.core.flow.ForEach
+    values: "{{ fromJson(read(outputs.extract_backfill_urls.outputFiles['urls.json'])) }}"
+    tasks:
+      - id: run_single_file_backfill
+        type: io.kestra.plugin.core.flow.Subflow
+        namespace: zoomcamp.vic
+        flowId: vic_vehicle_backfill_single_file
+        wait: true
+        inputs:
+          file_url: "{{ taskrun.value }}"
+          bucket: "{{ vars.bucket }}"
