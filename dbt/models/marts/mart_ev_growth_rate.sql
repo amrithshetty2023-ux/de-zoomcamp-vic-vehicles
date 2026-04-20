@@ -1,7 +1,7 @@
 with monthly as (
     select
         date_trunc(registration_date, month) as month,
-        count_if(ev_category = 'BEV') as bev_count
+        countif(ev_category = 'BEV') as bev_count
     from {{ ref('int_registrations_enriched') }}
     group by month
 )

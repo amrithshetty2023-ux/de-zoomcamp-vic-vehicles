@@ -1,3 +1,36 @@
-*.json
+
+# DBT
+dbt_packages/
+logs/
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Env
 .env
+*.json
 *.log
+
+
+# dbt
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+
+# Optional if you also run dbt outside /dbt
+target/
+dbt_packages/
+logs/
+dbt/target/graph.gpickle
+dbt/target/partial_parse.msgpack
+dbt/target/compiled/australia_ev_analytics/models/intermediate/int_normalized_make_model.sql
+dbt/target/compiled/australia_ev_analytics/models/intermediate/int_registrations_enriched.sql
+dbt/target/run/australia_ev_analytics/models/intermediate/int_normalized_make_model.sql
+dbt/target/run/australia_ev_analytics/models/intermediate/int_registrations_enriched.sql
