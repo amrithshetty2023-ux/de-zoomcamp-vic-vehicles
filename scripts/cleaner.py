@@ -143,4 +143,4 @@ def process_lk_model_map(input_csv):
 # RUN
 # ---------------------------------------------
 if __name__ == "__main__":
-    process_lk_model_map("./seeds_stage1/lk_model_map.csv")
+    process_lk_model_map("./seeds_stage1/lk_model_map_clean.csv")

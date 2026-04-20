@@ -89,5 +89,5 @@ model_map = (
 )
 model_map.to_csv(f"{OUTPUT_DIR}/lk_model_map.csv", index=False)
 
-print("Generated:", f"{OUTPUT_DIR}/lk_make_map.csv")
+print("Generated:", f"{OUTPUT_DIR}/lk_make_map_clean.csv")
 print("Generated:", f"{OUTPUT_DIR}/lk_model_map.csv")
