@@ -1,0 +1,27 @@
+version: 2
+
+models:
+  - name: mart_vehicle_registrations
+    description: "Final fact table for all vehicle registrations."
+    columns:
+      - name: registration_date
+        tests:
+          - not_null
+      - name: ev_category
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BEV', 'PHEV', 'HEV', 'ICE']
+
+
+  - name: mart_ev_share_by_month
+    description: "Monthly EV share metrics."
+
+  - name: mart_ev_by_make
+    description: "EV penetration by manufacturer."
+
+  - name: mart_top_models
+    description: "Top EV models by registration volume."
+
+  - name: mart_ev_growth_rate
+    description: "BEV growth rate month-over-month and year-over-year."

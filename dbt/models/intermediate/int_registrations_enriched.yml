@@ -1,0 +1,13 @@
+version: 2
+
+models:
+  - name: int_registrations_enriched
+    columns:
+      - name: model_standardized
+        tests:
+          - not_null
+      - name: ev_category
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['BEV', 'PHEV', 'HEV', 'ICE']

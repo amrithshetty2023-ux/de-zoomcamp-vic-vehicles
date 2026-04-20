@@ -1,0 +1,11 @@
+name: 'australia_ev_analytics'
+version: '1.0.0'
+config-version: 2
+
+profile: 'bigquery'
+
+model-paths: ["models"]
+
+models:
+  australia_ev_analytics:
+    +materialized: table

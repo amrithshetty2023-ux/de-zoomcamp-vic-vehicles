@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: vic
+    database: dtc-de-course-capstone-2026
+    schema: vic_vehicle_analytics
+    tables:
+      - name: ext_monthly_vehicle_registration_raw

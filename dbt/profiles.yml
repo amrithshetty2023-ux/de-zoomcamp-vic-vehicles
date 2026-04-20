@@ -1,0 +1,10 @@
+bigquery:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth
+      project: dtc-de-course-capstone-2026
+      dataset: vic_vehicle_analytics
+      threads: 4
+      timeout_seconds: 300
