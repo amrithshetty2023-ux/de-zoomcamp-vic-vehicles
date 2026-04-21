@@ -1,5 +1,5 @@
 # **Victoria EV Registration Analytics**  
-*A complete end‑to‑end data engineering pipeline for EV passenger card adoption analytics in Victoria, Australia.*
+*A complete end‑to‑end data engineering pipeline for EV passenger cars adoption analytics in Victoria, Australia.*
 
 ---
 
