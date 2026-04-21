@@ -206,8 +206,8 @@ docker run --pull=always --rm -it \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v /tmp:/tmp \
   -v $(pwd)/flows:/app/flows \
-  -v $(pwd)/gcp/service-account.json:/app/service-account.json \
-  -e GOOGLE_APPLICATION_CREDENTIALS=/app/service-account.json \
+  -v <path-to-your-sa-key>/service-account.json:/app/service-account.json \
+   -e GOOGLE_APPLICATION_CREDENTIALS=/app/service-account.json \
   kestra/kestra:latest server local
 ```
 
