@@ -8,7 +8,7 @@ ev as (
         make_standardized,
         model_standardized,
         ev_category
-    from {{ ref('lk_ev_classification_clean') }}
+    from {{ ref('lk_ev_model_map') }}
 )
 
 select

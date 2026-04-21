@@ -17,7 +17,7 @@ model_map as (
         make_standardized,
         model_raw,
         model_standardized
-    from {{ ref('lk_model_map_clean') }}
+    from {{ ref('lk_model_map') }}
 )
 
 select

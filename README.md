@@ -365,10 +365,31 @@ Create:
 - intermediate models for enrichment and classification,
 - and mart models for reporting.
 
+![alt text](dataLayer.png)
+
+#### Load seeds into BigQuery
+bash
+cd dbt
+dbt seed --full-refresh
+#### Run the full dbt pipeline
+bash
+dbt build
 
 
-
-
+australia-ev-analytics/
+│
+├── scripts/
+│   └── latest/generate_lookup_tables.py
+│
+├── dbt/
+│   ├── models/
+│   │   ├── staging/
+│   │   ├── intermediate/
+│   │   └── marts/
+│   ├── seeds/
+│   └── target/
+│
+└── data/
 
 
 
