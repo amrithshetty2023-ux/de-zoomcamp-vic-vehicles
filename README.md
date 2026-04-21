@@ -223,6 +223,18 @@ Run the following flows in Kestra ( Extraction and Load)
 Optional - vic_vehicle_platform_validation.yml run to check GCS and BQ access is sorted. 
 
 ## **4.6 Generate Lookup Tables**
+
+We generate the source csv for make and models from staging table created by Kestra.
+```bash
+SELECT DISTINCT
+  CD_MAKE_VEH,
+  CD_MODEL_VEH
+FROM vic_vehicle_analytics.stg_monthly_vehicle_registration
+WHERE CD_MAKE_VEH IS NOT NULL
+  AND CD_MODEL_VEH IS NOT NULL
+ORDER BY CD_MAKE_VEH asc;
+```
+
 ```bash
 python scripts/latest/generate_lookup_tables.py
 ```
