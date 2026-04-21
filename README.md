@@ -221,7 +221,8 @@ I had issues with Docker compose and GCP key so I started a standalone docker co
 Run Kestra with GCP Credentials
 Start Kestra in a Docker container and mount the Google Cloud service account key so Kestra can authenticate to GCP.
 
-`bash
+
+```markdown
 docker run --pull=always --rm -it \
   -p 8080:8080 \
   --user=root \
@@ -231,7 +232,8 @@ docker run --pull=always --rm -it \
   -v $(pwd)/gcp/service-account.json:/app/service-account.json \
   -e GOOGLE_APPLICATION_CREDENTIALS=/app/service-account.json \
   kestra/kestra:latest server local
-  `
+ 
+``` 
 Why This Setup Is Needed?
 Use GOOGLE_APPLICATION_CREDENTIALS so Kestra and the Google client libraries can find the service account JSON file inside the container.
 
@@ -329,8 +331,30 @@ vic_vehicle_platform_validation.yml run to check GCS and BQ access is sorted.
 
 ![alt text](image-1.png)
 
-### Step 4- Prepare Lookup Tables
+Two tables are create from Kestra's EL pipeline
+1. ext_monthly_vehicle_registration_raw
+2. tmp_monthly_vehicle_registration_load
 
+These two tables are created as part of the monthly vehicle ingestion pipeline. First, the raw CSV is landed in the GCS raw zone and exposed through **ext_monthly_vehicle_registration_raw**, which provides direct access to the source file without modifying its contents. Then the data is loaded into **tmp_monthly_vehicle_registration_load**, a temporary staging table used to clean, validate, and prepare the records before they are passed into the final monthly load process. Together, they separate source access from transformation work and make the pipeline easier to debug, rerun, and maintain.
+
+**tmp_monthly_vehicle_registration_load** is a temporary staging table created from the raw monthly vehicle registration source and contains only the core fields needed for downstream processing, such as make, model, body type, year, and total counts. Unlike the external raw table, which exposes the full source file, this table is a simplified subset used to prepare the data for the final monthly load into BigQuery. This separation keeps the pipeline lean, easier to validate, and easier to maintain.
+
+This workflow uses three tables to separate loading, raw storage, and analytics preparation. First, the CSV is loaded into **tmp_monthly_vehicle_registration_load**, a temporary table that contains only the core source columns needed for ingestion. Next, the data is appended into **ext_monthly_vehicle_registration_raw**, which stores the monthly records together with file metadata such as source file, month, year, registration month, and load timestamp. Finally, **stg_monthly_vehicle_registration** is rebuilt from the raw table into a cleaner analytics-ready shape with renamed and derived fields for downstream modeling and reporting.
+
+### Step 4- Prepare Lookup Tables
+**How the all_make_models.csv file is created**
+Before lookup tables can be generated, the project builds a consolidated all_make_models.csv file that contains every unique make/model pair observed across the Victorian registration dataset. This file is produced by extracting the raw CD_MAKE_VEH and CD_MODEL_VEH fields from all monthly registration extracts, normalising whitespace and casing, and then deduplicating the results. The goal is to create a single authoritative list of every make and model that appears in the source data, including rare variants, OCR‑damaged entries, and new EV brands entering the market. This unified list becomes the input to the Stage‑2 lookup generator, ensuring that every possible raw value is normalised, classified, and mapped consistently before dbt models consume it.
+
+To support clean, reliable analytics, the project includes a Stage‑2 lookup generation step that standardises all raw make/model strings from the Victorian registration dataset. Transport Victoria’s source files contain inconsistent spacing, OCR errors, hyphen variations, and multiple spelling variants for the same vehicle. The Stage‑2 script consolidates three previously separate processes—make normalisation, model normalisation, and EV classification—into a single deterministic pipeline. It reads the raw CD_MAKE_VEH and CD_MODEL_VEH fields, applies intelligent cleaning and variant‑collapsing rules, filters to passenger‑car brands, and assigns each model an EV category (BEV/PHEV/HEV/ICE). The output is a set of three lookup tables (lk_make_map, lk_model_map, lk_ev_model_map) stored in seeds_stage2/, which are then used by dbt to ensure consistent joins, accurate EV classification, and reproducible downstream analytics.
+
+Special CSVs from three lookup tables were created to reduce data noise on Make Model and EV catehory fields. Loads these csv as table in Biq query by running 
+
+The seeds files are already loaded in **dbt/seeds** folder
+
+```markdown
+dbt seed
+```
+![alt text](image-2.png)
 
 ### Step 5- DBT runs - Transform the Data with dbt
 
@@ -340,25 +364,6 @@ Create:
 - staging models for cleaned source fields,
 - intermediate models for enrichment and classification,
 - and mart models for reporting.
-
-### Step 6 - Looker Studio - Build the Dashboard
-
-Connect Looker Studio to the final BigQuery mart tables.
-
-Use the dashboard to visualize EV adoption trends and category-level insights.
-
-
-## Review the Architecture
-
-```mermaid
-flowchart LR
-    A[GCS Raw Files] --> B[BigQuery Raw Table]
-    B --> C[dbt Staging Models]
-    D[dbt Seed / Lookup Tables] --> E[dbt Intermediate Models]
-    C --> E
-    E --> F[dbt Mart Models]
-    F --> G[Looker Studio Dashboard]
-```
 
 
 
@@ -390,6 +395,25 @@ dbt test
 ### 6. Open the Dashboard
 
 Connect Looker Studio to the final BigQuery mart tables and build the reporting layer.
+
+### Step 6 - Looker Studio - Build the Dashboard
+
+Connect Looker Studio to the final BigQuery mart tables.
+
+Use the dashboard to visualize EV adoption trends and category-level insights.
+
+
+## Review the Architecture
+
+```mermaid
+flowchart LR
+    A[GCS Raw Files] --> B[BigQuery Raw Table]
+    B --> C[dbt Staging Models]
+    D[dbt Seed / Lookup Tables] --> E[dbt Intermediate Models]
+    C --> E
+    E --> F[dbt Mart Models]
+    F --> G[Looker Studio Dashboard]
+```
 
 ---
 
