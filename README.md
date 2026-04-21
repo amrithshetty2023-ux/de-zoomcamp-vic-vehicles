@@ -27,6 +27,10 @@ This project demonstrates a complete modern data engineering workflow using **GC
 
 # **2. Architecture**
 
+![alt text](arch.png)
+
+
+
 ## **2.1 High‑Level Architecture Diagram**
 
 ```mermaid
@@ -39,7 +43,9 @@ flowchart LR
     F --> G[Looker Studio Dashboard]
 ```
 ![alt text](kestraEL.png)
+
 ![alt text](dataLayer.png)
+
 ![alt text](dbt-flow.png)
 
 ---
@@ -160,6 +166,18 @@ cd <your-repo-folder>
 ```
 
 ## **4.2 Set Environment Variables**
+
+## Configure the GCP Service Account for Kestra (if secrets management fails)
+PS: Configure GCP keys as you normally would as the below steps are for my reference. 
+
+1. Store the Google Cloud service account JSON key inside the workspace.
+2. Mount the key file into the container or pass it into the Python task container.
+3. Set `GOOGLE_APPLICATION_CREDENTIALS` to the mounted key path when needed.
+4. Avoid Kestra secrets if they are unavailable in the Community Edition.
+5. Add the key folder to `.gitignore`.
+6. Verify that the Kestra flow can access GCS and BigQuery.
+
+
 ```bash
 export GCP_PROJECT_ID=your-project-id
 export BQ_DATASET=vic_vehicle_analytics
@@ -202,8 +220,7 @@ Run the following flows in Kestra ( Extraction and Load)
 1. ```javascript vic_vehicle_extract_2023_2026.yml ``` flow which loads all data from 2023 to current months ( March 2026)
    This loads all data into GCS buckets (Data Lake) we created using terraform
 2. ```javascript vic_vehicle_load_parent.yml ``` flow which loads all data from GCS to BigQuery(Date Warehouse )
-Optional
-vic_vehicle_platform_validation.yml run to check GCS and BQ access is sorted. 
+Optional - vic_vehicle_platform_validation.yml run to check GCS and BQ access is sorted. 
 
 ## **4.6 Generate Lookup Tables**
 ```bash
@@ -269,7 +286,7 @@ The dashboard includes:
 
 ![alt text](dashboard.png)
 Dashboard link:  
-**`https://datastudio.google.com/embed/reporting/ea683482-b128-493c-abe2-bdcc0e526020/page/mgkvF` [(datastudio.google.com in Bing)](https://www.bing.com/search?q="https%3A%2F%2Fdatastudio.google.com%2Fembed%2Freporting%2Fea683482-b128-493c-abe2-bdcc0e526020%2Fpage%2FmgkvF")**
+**`https://datastudio.google.com/embed/reporting/ea683482-b128-493c-abe2-bdcc0e526020/page/mgkvF`](https://www.bing.com/search?q="https%3A%2F%2Fdatastudio.google.com%2Fembed%2Freporting%2Fea683482-b128-493c-abe2-bdcc0e526020%2Fpage%2FmgkvF")**
 
 ---
 
@@ -387,9 +404,3 @@ This project demonstrates:
 The project is fully reproducible, end‑to‑end automated, and ready for peer review.
 
 ---
-
-If you want, I can also generate:
-
-- a **short version** for LinkedIn,  
-- a **portfolio summary**,  
-- or a **project walkthrough script** for your video submission.
