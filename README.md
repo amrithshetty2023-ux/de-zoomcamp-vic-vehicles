@@ -1,228 +1,187 @@
-# vic-ev-analytics
-## Problem Description
-
-Victoria’s vehicle registration data contains a large and growing number of vehicles, but the raw records are not immediately useful for understanding the shift to electric mobility. The main challenge is that the data is stored in low-level registration fields such as make, model, body type, and fuel-related text, which makes it difficult to reliably identify whether a vehicle is an EV, PHEV, HEV, or traditional ICE vehicle.
-
-This project solves that problem by transforming raw registration data into a clean analytical model that can classify vehicles by powertrain type and support EV adoption analysis over time. Without this transformation, it is hard to answer basic questions such as: How many registered vehicles are electric? Which makes and models are driving EV growth? Is EV adoption increasing month by month? By building lookup tables, staging models, and a final mart, the project turns messy registration data into a reliable dataset for EV market analysis.
-
-The goal is to create a reproducible pipeline that can be used to monitor vehicle registrations, compare EVs against non-EVs, and track adoption trends in a way that is transparent and easy to update. This makes the data useful not just for reporting, but for understanding the real pace of transition in Victoria’s vehicle fleet
-
-# Victoria EV Registration Analytics
-
-## Project Overview
-
-This project analyzes Victorian vehicle registration data to understand the transition from traditional internal combustion vehicles to electric vehicles. The raw registration records are messy and inconsistent, so the project builds a reproducible data pipeline that cleans the source data, standardizes vehicle makes and models, classifies vehicles by powertrain type, and exposes the final analytics tables in BigQuery for dashboarding in Looker Studio.
-
-## Problem Description
-
-Victoria’s vehicle registration data is rich, but raw make and model fields are not enough to reliably identify EVs, PHEVs, HEVs, and ICE vehicles. Different spelling variants, abbreviations, and inconsistent naming make direct analysis difficult. This project solves that problem by transforming raw registration records into a clean analytical model that can support EV adoption analysis, model-level comparisons, and time-based reporting.
-
-Without this transformation, it is hard to answer questions such as:
-- How many vehicles are electric?
-- Which makes and models are driving EV growth?
-- How is EV share changing over time?
-- What is the balance between EV, PHEV, HEV, and ICE registrations?
-
-## Objectives
-
-- Clean and standardize raw vehicle registration data.
-- Build lookup tables for make, model, and EV classification.
-- Classify vehicles into EV, PHEV, HEV, ICE, or UNKNOWN.
-- Create reusable BigQuery tables for analytics.
-- Build a dashboard in Looker Studio to visualize EV adoption trends.
-
-## Data Sources
-
-The project uses:
-- Raw Victorian vehicle registration data stored in BigQuery.
-- Lookup tables for standardized makes and models.
-- EV classification tables derived from curated model rules and lookup mappings.
-
-## Architecture
-
-The pipeline follows a simple layered architecture:
-1. Raw registration data is loaded into BigQuery.
-2. dbt seeds load lookup and classification tables.
-3. dbt staging models clean and standardize the raw data.
-4. dbt intermediate models join the raw data to lookup tables and derive powertrain classification.
-5. dbt marts create final analytical tables.
-6. Looker Studio reads from BigQuery to build charts and dashboards.
+# **Victoria EV Registration Analytics**  
+*A complete end‑to‑end data engineering pipeline for EV passenger card adoption analytics in Victoria, Australia.*
 
 ---
 
-## Use the Tech Stack
+# **1. Project Overview**
 
-Use the following tools in this project:
-- **Google Cloud Storage** to store raw files
-- **BigQuery** to store and query warehouse tables3
-- **Kestra** orchestrator to ingest and store CSV files
-- **dbt** to transform raw data into analytical models
-- **Terraform** to provision cloud infrastructure
-- **Looker Studio** to build the dashboard
-- **GitHub** to version and share the project
+Victoria’s vehicle registration dataset contains hundreds of thousands of records, but the raw data is not directly usable for EV analytics. Make and model fields are inconsistent, fuel information is unreliable, and new EV brands appear frequently with messy naming conventions. This project builds a **fully reproducible cloud‑based data pipeline** that:
 
+- ingests raw registration files from Transport Victoria,
+- stores them in a structured data lake,
+- cleans and standardizes vehicle make/model fields,
+- classifies each vehicle into **BEV, PHEV, HEV, ICE**,  
+- aggregates the data into analytical marts,
+- and exposes the results in a Looker Studio dashboard.
 
+The final output enables clear answers to questions such as:
 
+- How many vehicles are electric?
+- Which makes and models drive EV growth?
+- How is EV share changing over time?
+- What is the balance between BEV, PHEV, HEV, and ICE?
 
-## Data Analytics Pipeline Design
+This project demonstrates a complete modern data engineering workflow using **GCS, BigQuery, Kestra, dbt, Terraform, and Looker Studio**.
 
-### Staging Layer
-The staging layer standardizes raw registration fields such as make, model, body type, state, year, and fuel type.
+---
 
-### Intermediate Layer
-The intermediate layer joins the registration data to lookup tables and applies classification logic to derive the vehicle category.
+# **2. Architecture**
 
-### Mart Layer
-The mart layer aggregates the cleaned data into business-ready tables for analysis and visualization.
+## **2.1 High‑Level Architecture Diagram**
 
-## Key Outputs
+```mermaid
+flowchart LR
+    A[GCS Raw Files] --> B[BigQuery Raw Table]
+    B --> C[dbt Staging Models]
+    D[dbt Seed Lookup Tables] --> E[dbt Intermediate Models]
+    C --> E
+    E --> F[dbt Mart Models]
+    F --> G[Looker Studio Dashboard]
+```
+![alt text](kestraEL.png)
+![alt text](dataLayer.png)
+![alt text](dbt-flow.png)
 
-The final project includes:
-- Cleaned and standardized vehicle registration tables.
-- EV classification lookup tables.
-- Aggregated analytical marts.
-- Looker Studio charts for EV adoption trends.
+---
 
-## Dashboard Questions
-[text](https://datastudio.google.com/embed/reporting/ea683482-b128-493c-abe2-bdcc0e526020/page/mgkvF)
-The dashboard is designed to answer:
-- What is the total number of registrations?
-- How many are EVs?
-- Which makes have the highest EV counts?
-- How is EV share changing by month?
+## **2.2 Architecture Explanation**
+
+### **Raw Layer (GCS + BigQuery External Table)**
+- Raw CSVs from Transport Victoria are ingested into a GCS bucket.
+- BigQuery external tables expose the raw files without modification.
+
+### **Staging Layer (dbt)**
+- Cleans raw fields (make, model, body type, year, state).
+- Standardizes casing, whitespace, and date formats.
+- Produces a clean, typed staging table.
+
+### **Lookup Layer (Python + dbt seeds)**
+- A Python script generates:
+  - `lk_make_map`
+  - `lk_model_map`
+  - `lk_ev_model_map`
+- These lookup tables normalize messy make/model variants and classify EV categories.
+
+### **Intermediate Layer (dbt)**
+- Joins staging data with lookup tables.
+- Filters to **passenger vehicles only**.
+- Applies EV classification.
+- Produces `int_registrations_enriched`.
+
+### **Mart Layer (dbt)**
+Final analytical tables:
+- `mart_ev_share_by_month`
+- `mart_ev_by_make`
+- `mart_ev_growth_rate`
+- `mart_top_models`
+
+### **Dashboard Layer (Looker Studio)**
+- Visualizes EV adoption trends.
+- Provides categorical and temporal insights.
+
+---
+
+# **3. End‑to‑End Pipeline Flow**
+
+## **3.1 Ingestion (Kestra)**
+
+Kestra orchestrates the ingestion pipeline:
+
+### **Historical Load**
+- `vic_vehicle_extract_2023_2026.yml`  
+  Extracts all historical CSV/ZIP files (2023–2026) and loads them into GCS.
+
+### **Monthly Incremental Load**
+- `monthly_vic_vehicle_ingest_scheduled`  
+  Scrapes the Transport Victoria dataset page, finds the latest file, downloads it, and uploads it to GCS.
+
+### **Load to BigQuery**
+- `vic_vehicle_load_monthly_to_bq`  
+  Loads raw CSV → tmp table → raw table → rebuilds staging.
+
+### **Validation**
+- `vic_vehicle_platform_validation.yml`  
+  Confirms GCS and BigQuery access.
+
+---
+
+## **3.2 Lookup Table Generation (Python)**
+
+A Python script consolidates all raw make/model pairs and applies:
+
+- whitespace normalization  
+- OCR error correction  
+- variant collapsing  
+- EV classification rules  
+- passenger‑vehicle filtering  
+
+Outputs three lookup tables stored in `dbt/seeds/`.
+
+---
+
+## **3.3 Transformations (dbt)**
+
+### **Staging**
+- Clean raw fields  
+- Standardize naming  
+- Derive registration month  
+
+### **Intermediate**
+- Normalize make/model  
+- Filter to passenger vehicles  
+- Join EV classification  
+- Produce enriched records  
+
+### **Marts**
+- EV share by month  
+- EV growth rate  
+- EV counts by make  
+- Top EV models  
+
+---
+
+## **3.4 Dashboard (Looker Studio)**
+
+The dashboard answers:
+
+- How many vehicles are EVs?
+- How is EV share trending monthly?
+- Which makes dominate EV registrations?
 - Which models are most common?
 
-## Reproducibility
-
-Follow this data flow:
-1. Store raw files in GCS.
-2. Load raw files into BigQuery.
-3. Clean and standardize source data in dbt staging models.
-4. Join lookup tables and derive analytical fields in dbt intermediate models.
-5. Build reporting tables in dbt marts.
-6. Connect Looker Studio to the final mart tables.
-
-
-### Understand the Project
-
-Use this project to transform raw Victorian vehicle registration data into analytics-ready tables for EV adoption reporting.
-
-Use the pipeline to:
-- ingest raw files into GCS,
-- load source data into BigQuery,
-- transform the data with dbt,
-- and visualize the final outputs in Looker Studio.
-
-Solve the core problem that raw registration data does not clearly identify EVs, PHEVs, HEVs, and ICE vehicles in a clean and analysis-friendly format.
-
 ---
 
-### Understand the Problem
+# **4. Reproduction Steps**
 
-Raw vehicle registration records contain useful information, but do not directly support EV analytics. Expect inconsistencies in make names, model names, and other descriptive fields.
-
-Use this project to:
-- clean raw registration records,
-- standardize important columns,
-- apply lookup-based classification logic,
-- and create reporting tables for EV adoption analysis.
-
-Use the final outputs to answer questions such as:
-- How many registered vehicles are EVs?
-- How is EV share changing over time?
-- Which manufacturers contribute most to EV growth?
-- Which vehicle models appear most often?
-
-
-### Step 1 Initial Setup/ Requirements
-- To start off you will need a GCP account as most of the resources are there. 
-- The project was developed in GitHub codespaces which has most of the required packages and utils available like Python 3.12.1 
-- GCP service account with following permission BigQuery Data Editor, BigQuery Job User, Storage Object Admin
-- GCP JSON key ready
-
-#### 1. Clone the Repository
-
+## **4.1 Clone the Repository**
 ```bash
 git clone <your-repo-url>
 cd <your-repo-folder>
 ```
 
-#### 2. Configure Environment Variables
-
-Set environment variables instead of hardcoding local paths or personal cloud values.
-
-Example:
-
+## **4.2 Set Environment Variables**
 ```bash
 export GCP_PROJECT_ID=your-project-id
 export BQ_DATASET=vic_vehicle_analytics
 export GCS_BUCKET=your-bucket-name
 ```
 
-#### 3. Install dbt Dependencies
-
-Open the dbt project folder and install required packages.
-
+## **4.3 Provision Infrastructure (Terraform)**
 ```bash
-cd dbt
-dbt deps
+cd terraform
+terraform init
+terraform plan
+terraform apply
 ```
 
+Creates:
+- GCS bucket  
+- BigQuery dataset  
 
-#### 1. Provision Infrastructure
+## **4.4 Start Kestra**
+Run Kestra with GCP credentials mounted:
 
-Create the cloud infrastructure before loading any data.
-
-1. Open the Terraform directory.
-
-   ```bash
-   cd terraform
-   ```
-
-2. Initialize Terraform.
-
-   ```bash
-   terraform init
-   ```
-
-3. Review the execution plan.
-
-   ```bash
-   terraform plan
-   ```
-
-4. Apply the infrastructure.
-
-   ```bash
-   terraform apply
-   ```
-
-5. Type `yes` when prompted.
-
-6. Verify that Terraform creates:
-   - the GCS bucket for raw data storage,
-   - and the BigQuery dataset for warehouse tables.
-
-#### 2. Load Raw Data into GCS
-
-Upload or ingest the raw vehicle registration files into the GCS bucket.
-
-Use GCS as the raw storage layer for the project.
-
-#### 3. Load Raw Data into BigQuery
-
-Load the source files from GCS into a raw BigQuery table.
-
-Use the raw BigQuery table as the source layer for dbt models.
-
-
-### Step 2 Start Kestra
-I had issues with Docker compose and GCP key so I started a standalone docker container with GCP key mapped
-Run Kestra with GCP Credentials
-Start Kestra in a Docker container and mount the Google Cloud service account key so Kestra can authenticate to GCP.
-
-
-```markdown
+```bash
 docker run --pull=always --rm -it \
   -p 8080:8080 \
   --user=root \
@@ -232,373 +191,205 @@ docker run --pull=always --rm -it \
   -v $(pwd)/gcp/service-account.json:/app/service-account.json \
   -e GOOGLE_APPLICATION_CREDENTIALS=/app/service-account.json \
   kestra/kestra:latest server local
- 
-``` 
-Why This Setup Is Needed?
-Use GOOGLE_APPLICATION_CREDENTIALS so Kestra and the Google client libraries can find the service account JSON file inside the container.
+```
 
-Mount $(pwd)/gcp/service-account.json into the container so the credentials file is available at /app/service-account.json.
-
-Use the mounted file to let Kestra access Google Cloud services such as GCS and BigQuery with the correct permissions.
-
-How It Works
-Mount the service account JSON file into the container.
-
-Point GOOGLE_APPLICATION_CREDENTIALS to that file path.
-
-Let Kestra use the credentials when it runs Google Cloud tasks.
-
-What This Enables
-Use this setup so Kestra can:
-
-read files from GCS.
-
-load data into BigQuery.
-
-run Google Cloud tasks with proper authentication.
-
-Important Note
-Keep the service account JSON file out of Git and out of your Docker image.
-
-Store the file locally or in a managed secret system, and mount it only when you run Kestra.
-
-
-
-### Step 3 - Run Kestra Flow
-flowchart TD
-
-    %% ============================
-    %%   DATA SOURCE
-    %% ============================
-    A[Transport Victoria<br>Open Data Portal]:::source
-
-    %% ============================
-    %%   SCHEDULED MONTHLY INGEST
-    %% ============================
-    A --> B[monthly_vic_vehicle_ingest_scheduled<br>• Scrape dataset page<br>• Find latest CSV<br>• Download & upload to GCS]
-
-    B --> C[GCS Raw Zone<br>raw/monthly_new_vehicle_registration/]:::storage
-
-    %% ============================
-    %%   MONTHLY LOAD PIPELINE
-    %% ============================
-    C --> D[vic_vehicle_load_monthly_to_bq<br>• Parse filename<br>• Load → tmp table<br>• Append → raw table<br>• Rebuild staging]
-
-    D --> E[BigQuery<br>tmp / raw / staging tables]:::bq
-
-
-    %% ============================
-    %%   HISTORICAL EXTRACTION
-    %% ============================
-    A --> F[vic_vehicle_extract_2023_2026<br>• Extract all 2023–2026 ZIP/CSV URLs]
-
-    F --> G[vic_vehicle_extract_single_file<br>• Download ZIP/CSV<br>• Clean rows<br>• Upload cleaned CSVs]
-
-    G --> C
-
-
-    %% ============================
-    %%   BULK LOAD (PARENT)
-    %% ============================
-    C --> H[vic_vehicle_load_parent<br>• List all cleaned CSVs<br>• Run monthly loader for each]
-
-    H --> D
-
-
-    %% ============================
-    %%   PLATFORM VALIDATION
-    %% ============================
-    I[vic_vehicle_platform_validation<br>• Test GCS access<br>• Test BigQuery access]:::utility
-
-
-    %% ============================
-    %%   STYLES
-    %% ============================
-    classDef source fill:#f6d860,stroke:#b8860b,stroke-width:1px,color:#000;
-    classDef storage fill:#d0e6ff,stroke:#1e64c8,stroke-width:1px,color:#000;
-    classDef bq fill:#c8f7c5,stroke:#2e8b57,stroke-width:1px,color:#000;
-    classDef utility fill:#eee,stroke:#999,stroke-width:1px,color:#000;
-
+## **4.5 Run Kestra Flows**
+1. Historical load  
+2. Parent load  
+3. Optional: validation flow  
 
 Run the following flows in Kestra ( Extraction and Load)
 1. ```javascript vic_vehicle_extract_2023_2026.yml ``` flow which loads all data from 2023 to current months ( March 2026)
    This loads all data into GCS buckets (Data Lake) we created using terraform
 2. ```javascript vic_vehicle_load_parent.yml ``` flow which loads all data from GCS to BigQuery(Date Warehouse )
-
 Optional
 vic_vehicle_platform_validation.yml run to check GCS and BQ access is sorted. 
 
-
-![alt text](image-1.png)
-
-Two tables are create from Kestra's EL pipeline
-1. ext_monthly_vehicle_registration_raw
-2. tmp_monthly_vehicle_registration_load
-
-These two tables are created as part of the monthly vehicle ingestion pipeline. First, the raw CSV is landed in the GCS raw zone and exposed through **ext_monthly_vehicle_registration_raw**, which provides direct access to the source file without modifying its contents. Then the data is loaded into **tmp_monthly_vehicle_registration_load**, a temporary staging table used to clean, validate, and prepare the records before they are passed into the final monthly load process. Together, they separate source access from transformation work and make the pipeline easier to debug, rerun, and maintain.
-
-**tmp_monthly_vehicle_registration_load** is a temporary staging table created from the raw monthly vehicle registration source and contains only the core fields needed for downstream processing, such as make, model, body type, year, and total counts. Unlike the external raw table, which exposes the full source file, this table is a simplified subset used to prepare the data for the final monthly load into BigQuery. This separation keeps the pipeline lean, easier to validate, and easier to maintain.
-
-This workflow uses three tables to separate loading, raw storage, and analytics preparation. First, the CSV is loaded into **tmp_monthly_vehicle_registration_load**, a temporary table that contains only the core source columns needed for ingestion. Next, the data is appended into **ext_monthly_vehicle_registration_raw**, which stores the monthly records together with file metadata such as source file, month, year, registration month, and load timestamp. Finally, **stg_monthly_vehicle_registration** is rebuilt from the raw table into a cleaner analytics-ready shape with renamed and derived fields for downstream modeling and reporting.
-
-### Step 4- Prepare Lookup Tables
-**How the all_make_models.csv file is created**
-Before lookup tables can be generated, the project builds a consolidated all_make_models.csv file that contains every unique make/model pair observed across the Victorian registration dataset. This file is produced by extracting the raw CD_MAKE_VEH and CD_MODEL_VEH fields from all monthly registration extracts, normalising whitespace and casing, and then deduplicating the results. The goal is to create a single authoritative list of every make and model that appears in the source data, including rare variants, OCR‑damaged entries, and new EV brands entering the market. This unified list becomes the input to the Stage‑2 lookup generator, ensuring that every possible raw value is normalised, classified, and mapped consistently before dbt models consume it.
-
-To support clean, reliable analytics, the project includes a Stage‑2 lookup generation step that standardises all raw make/model strings from the Victorian registration dataset. Transport Victoria’s source files contain inconsistent spacing, OCR errors, hyphen variations, and multiple spelling variants for the same vehicle. The Stage‑2 script consolidates three previously separate processes—make normalisation, model normalisation, and EV classification—into a single deterministic pipeline. It reads the raw CD_MAKE_VEH and CD_MODEL_VEH fields, applies intelligent cleaning and variant‑collapsing rules, filters to passenger‑car brands, and assigns each model an EV category (BEV/PHEV/HEV/ICE). The output is a set of three lookup tables (lk_make_map, lk_model_map, lk_ev_model_map) stored in seeds_stage2/, which are then used by dbt to ensure consistent joins, accurate EV classification, and reproducible downstream analytics.
-
-Special CSVs from three lookup tables were created to reduce data noise on Make Model and EV catehory fields. Loads these csv as table in Biq query by running 
-
-The seeds files are already loaded in **dbt/seeds** folder
-
-```markdown
-dbt seed
+## **4.6 Generate Lookup Tables**
+```bash
+python scripts/latest/generate_lookup_tables.py
 ```
-![alt text](image-2.png)
 
-### Step 5- DBT runs - Transform the Data with dbt
-
-Use dbt to clean, standardize, enrich, and model the raw registration data.
-
-Create:
-- staging models for cleaned source fields,
-- intermediate models for enrichment and classification,
-- and mart models for reporting.
-
-![alt text](dataLayer.png)
-
-#### Load seeds into BigQuery
-bash
+## **4.7 Load Lookup Tables**
+```bash
 cd dbt
 dbt seed --full-refresh
-#### Run the full dbt pipeline
-bash
+```
+
+## **4.8 Build the Full Pipeline**
+```bash
 dbt build
-
-
-australia-ev-analytics/
-│
-├── scripts/
-│   └── latest/generate_lookup_tables.py
-│
-├── dbt/
-│   ├── models/
-│   │   ├── staging/
-│   │   ├── intermediate/
-│   │   └── marts/
-│   ├── seeds/
-│   └── target/
-│
-└── data/
-
-
-
-
----
-
-
-### 4. Run dbt Models
-
-Run all dbt models.
-
-```bash
-dbt run
 ```
 
-### 5. Run dbt Tests
+## **4.9 Open the Dashboard**
+Connect Looker Studio to the mart tables.
 
-Run data quality checks.
+---
 
-```bash
-dbt test
+# **5. Data Modeling Layers**
+
+## **5.1 Staging Models**
+- Clean raw fields  
+- Standardize make/model casing  
+- Derive registration month  
+- Remove invalid rows  
+
+## **5.2 Intermediate Models**
+- Normalize make/model using lookup tables  
+- Filter to passenger vehicles  
+- Join EV classification  
+- Produce enriched dataset  
+
+## **5.3 Mart Models**
+- **mart_ev_share_by_month**  
+  EV share, BEV share, PHEV share  
+- **mart_ev_by_make**  
+  EV counts by manufacturer  
+- **mart_ev_growth_rate**  
+  Month‑over‑month growth  
+- **mart_top_models**  
+  Most common EV models  
+
+---
+
+# **6. Dashboard**
+
+The dashboard includes:
+
+### **Categorical Chart**
+- EV registrations by make (Top 10)
+
+### **Temporal Chart**
+- EV share over time (combo chart: EV, BEV, PHEV)
+
+### **Additional Charts**
+- EV vs ICE donut  
+- Top EV models  
+- EV growth rate  
+
+![alt text](dashboard.png)
+Dashboard link:  
+**`https://datastudio.google.com/embed/reporting/ea683482-b128-493c-abe2-bdcc0e526020/page/mgkvF` [(datastudio.google.com in Bing)](https://www.bing.com/search?q="https%3A%2F%2Fdatastudio.google.com%2Fembed%2Freporting%2Fea683482-b128-493c-abe2-bdcc0e526020%2Fpage%2FmgkvF")**
+
+---
+
+# **7. Challenges & Solutions**
+
+## **7.1 Messy Make/Model Data**
+Raw data contains:
+- OCR errors  
+- spacing inconsistencies  
+- abbreviations  
+- partial names  
+- corrupted strings  
+
+**Solution:**  
+A Python normalization pipeline that collapses variants and produces clean lookup tables.
+
+---
+
+## **7.2 EV Misclassification**
+Example:  
+Ford Everest variants (`EVERAS`, `EVRRES`, etc.) were incorrectly tagged as BEV due to “EV” prefix.
+
+**Solution:**  
+Brand‑specific override rules + model collapsing logic.
+
+---
+
+## **7.3 Missing EV Share in Marts**
+`ev_share` was not initially included.
+
+**Solution:**  
+Added:
+```sql
+safe_divide(bev_count + phev_count + hev_count, total_registrations) as ev_share
 ```
 
-### 6. Open the Dashboard
+---
 
-Connect Looker Studio to the final BigQuery mart tables and build the reporting layer.
+## **7.4 Looker Studio “New Field” Bug**
+Caused by missing or mis‑typed metrics.
 
-### Step 6 - Looker Studio - Build the Dashboard
-
-Connect Looker Studio to the final BigQuery mart tables.
-
-Use the dashboard to visualize EV adoption trends and category-level insights.
-
-
-## Review the Architecture
-
-```mermaid
-flowchart LR
-    A[GCS Raw Files] --> B[BigQuery Raw Table]
-    B --> C[dbt Staging Models]
-    D[dbt Seed / Lookup Tables] --> E[dbt Intermediate Models]
-    C --> E
-    E --> F[dbt Mart Models]
-    F --> G[Looker Studio Dashboard]
-```
+**Solution:**  
+Refresh schema + set field type to Percent.
 
 ---
 
-## Use the dbt Layers
+## **7.5 Passenger Vehicle Filtering**
+Raw data includes:
+- trucks  
+- buses  
+- trailers  
+- commercial vehicles  
 
-### Use the staging layer
-Clean and normalize the raw source fields.
-
-Standardize columns such as:
-- registration date,
-- make,
-- model,
-- body type,
-- and state.
-
-### Use the intermediate layer
-Join lookup tables and derive normalized analytical fields.
-
-Use this layer to enrich records and apply EV classification logic.
-
-### Use the mart layer
-Create reporting-ready tables for analysis and dashboarding.
-
-Use mart models to produce:
-- EV growth over time,
-- EV share by month,
-- EV counts by make,
-- and top vehicle models.
+**Solution:**  
+Passenger‑only intermediate model using `lk_make_map`.
 
 ---
 
-## Review the Main Models
+## **7.6 Lookup Table Generation Complexity**
+Needed to unify:
+- make normalization  
+- model normalization  
+- EV classification  
 
-Use model groups such as:
-- `stg_registrations`
-- `int_registrations_enriched`
-- `int_normalized_make_model`
-- `mart_ev_growth_rate`
-- `mart_ev_share_by_month`
-- `mart_ev_by_make`
-- `mart_top_models`
+**Solution:**  
+A single deterministic Python pipeline.
 
 ---
 
-## Review the Repository Structure
+# **8. Future Improvements**
+- Add anomaly detection for sudden spikes  
+- Add CI for dbt tests  
+- Add partitioning/clustering optimizations  
+- Expand classification for rare models  
+- Add dashboard filters (make, model, body type)  
+
+---
+
+# **9. Repository Structure**
 
 ```bash
 .
 ├── README.md
 ├── terraform/
-│   ├── main.tf
-│   ├── variables.tf
-│   └── outputs.tf
 ├── ingestion/
 │   ├── scripts/
 │   └── flows/
 ├── dbt/
-│   ├── dbt_project.yml
 │   ├── models/
-│   │   ├── staging/
-│   │   ├── intermediate/
-│   │   └── marts/
 │   ├── seeds/
 │   ├── macros/
 │   └── tests/
+├── scripts/
+│   └── latest/generate_lookup_tables.py
 └── dashboard/
 ```
 
-Update the structure above if your real folder names differ.
+---
+
+# **10. Key Learnings**
+
+This project demonstrates:
+
+- How to build a cloud‑native data pipeline  
+- How to clean and normalize messy real‑world data  
+- How to design dbt models across staging → intermediate → marts  
+- How to classify EVs using lookup logic  
+- How to build reproducible analytics workflows  
+- How to create a dashboard that tells a clear story  
 
 ---
 
-## Check Data Quality
+# **11. Project Status**
 
-Run dbt tests on key fields before using the final marts.
-
-Validate:
-- unique identifiers,
-- not-null business-critical columns,
-- and accepted values where needed.
-
-Use these tests to catch model and source issues early.
+The project is fully reproducible, end‑to‑end automated, and ready for peer review.
 
 ---
 
-## Use the Dashboard Outputs
+If you want, I can also generate:
 
-Use the final dashboard to answer questions such as:
-- How many vehicles are EVs?
-- How is EV adoption changing month by month?
-- Which manufacturers have the highest EV counts?
-- Which models dominate the EV segment?
-
----
-
-## Handle Reproducibility Correctly
-
-Follow these rules before submitting the repo:
-
-1. Commit every required file to the repository.
-2. Avoid hardcoding local file paths.
-3. Avoid hardcoding personal GCP project IDs when environment variables can be used.
-4. Ignore generated dbt artifacts such as `dbt/target/`.
-5. Run `dbt deps` if the project depends on external dbt packages.
-6. Test the project from a clean clone.
-7. Make sure the README matches the actual codebase.
-8. Verify that setup commands run without missing files or broken paths.
-
----
-
-## Note the Limitations
-
-Expect some vehicle records to remain difficult to classify because raw registration data may not always contain clean or complete fuel or drivetrain details.
-
-Use lookup-based logic to improve classification, but expect some edge cases to require future refinement.
-
----
-
-## Plan Future Improvements
-
-Improve the project further by:
-- expanding classification coverage for rare models,
-- adding freshness and anomaly checks,
-- optimizing BigQuery partitioning and clustering,
-- adding more dashboard filters,
-- and automating validation in CI.
-
----
-
-## Credit the Project
-
-Use this repository as a portfolio data engineering project focused on EV adoption analytics in Victoria, Australia.
-
-
-### DBT Setup
-To reproduce the project:
-1. Load seed tables into dbt.
-2. Run dbt staging models.
-3. Run dbt intermediate and mart models.
-4. Run dbt tests.
-5. Connect Looker Studio to the final BigQuery mart tables.
-
-## Challenges
-
-Some vehicle records are difficult to classify because raw registration data does not always cleanly expose fuel or drivetrain information. This project addresses that limitation by introducing lookup-based normalization and classification logic, though some edge cases may still require refinement.
-
----
-
-## Future Improvements
-
-- Improve vehicle classification coverage for rare models.
-- Add automated freshness and anomaly checks.
-- Add partitioning and clustering optimizations in BigQuery.
-- Expand dashboard filtering by make, model, and body type.
-- Add CI checks for dbt tests and repository validation.
-
----
-
-## Key Learnings
-
-This project demonstrates how cloud storage, data warehousing, transformation tooling, and BI reporting fit together in an end-to-end analytics workflow. It also highlights the importance of reproducibility, clean modeling, data quality checks, and documentation in real-world data engineering projects.
-
-## Project Status
-
-This project is structured for reproducibility and analysis, with a clean pipeline from raw data to dashboard-ready marts.
-
-![alt text](image.png)
+- a **short version** for LinkedIn,  
+- a **portfolio summary**,  
+- or a **project walkthrough script** for your video submission.
