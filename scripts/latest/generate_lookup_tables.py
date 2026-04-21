@@ -58,6 +58,14 @@ MAKE_CORRECTIONS = {
     "POLEST": "POLESTAR",
     "PEUG": "PEUGEOT",
     "M G": "MG",
+    "CHEV": "CHEVROLET",
+    "CITRN": "CITROEN",
+    "DAIHAT": "DAIHATSU",
+    "FERRAR": "FERRARI",
+    "G M C": "GMC",
+    "G WALL": "GREAT WALL",
+    "GENSIS": "GENESIS",
+    "HAVAL": "HAVAL"
 }
 
 PASSENGER_MAKES = {
@@ -67,7 +75,7 @@ PASSENGER_MAKES = {
     "JEEP","KIA","LAND ROVER","LEXUS","LOTUS","MASERATI","MAHINDRA","MAZDA","MCLAREN",
     "MERCEDES-BENZ","MG","MINI","MITSUBISHI","NISSAN","PEUGEOT","POLESTAR","PORSCHE",
     "RENAULT","ROLLS-ROYCE","SKODA","SUBARU","SUZUKI","TESLA","TOYOTA","VOLKSWAGEN",
-    "VOLVO",
+    "VOLVO","CHEVROLET","CITROEN","DAIHATSU","FERRARI","GMC","GREAT WALL","GENESIS","HAVAL",
 
     # EV-only / NEV brands
     "XPENG","ZEEKR","NIO","LUCID","RIVIAN","LEAPMOTOR","SKYWORTH","DENZA","DEEPAL",
@@ -100,6 +108,11 @@ def fix_ocr(text):
 
 def collapse_variants(model):
     m = model.upper()
+
+    # FORD EVEREST family (avoid EV false positives)
+    if re.fullmatch(r"(EVER(AS|ER|ES|RE|RS|SE|ST|TE)?|EVRRES|EVREST)", m):
+        return "EVEREST"
+
 
     # OUTLANDER family
     if re.fullmatch(r"(OUTL(A|E)N(D|R)?|OUTLA|OUTLAD|OUTLAN|OUTLAND)", m):
@@ -208,6 +221,11 @@ HEV_MARKERS = {"HYBRID", "HEV", "E-POWER", "EPOWER", "MILD HYBRID", "SHVS", "E-T
 def classify_ev(make, model):
     make = make.upper()
     model = model.upper()
+
+        # Ford Everest is ICE (avoid EV false positives)
+    if make == "FORD" and model.startswith("EVER"):
+        return "ICE"
+
 
     # PHEV first (to avoid misclassifying as BEV)
     for pattern in PHEV_PATTERNS:
