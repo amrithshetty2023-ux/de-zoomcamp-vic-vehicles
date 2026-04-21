@@ -1,6 +1,25 @@
 id: vic_vehicle_load_monthly_to_bq
 namespace: zoomcamp.vic
 
+description: |
+  Ingests a single month of Victoria vehicle registration data into BigQuery.
+
+  This workflow:
+    • Parses the source file name to extract month, year, and registration date metadata  
+    • Loads the CSV file from GCS into a temporary BigQuery table  
+    • Ensures the raw monthly vehicle registration table exists  
+    • Appends the new month's data into the raw table with metadata and load timestamp  
+    • Rebuilds the staging table used for analytics and downstream modeling  
+
+  Inputs:
+    - file_url: GCS path to the monthly CSV file
+    - bucket: GCS bucket containing the file
+    - project_id: Target GCP project (default: dtc-de-course-capstone-2026)
+    - dataset: Target BigQuery dataset (default: vic_vehicle_analytics)
+
+  This workflow is intended to be triggered once per monthly file arrival.
+
+
 inputs:
   - id: file_url
     type: STRING

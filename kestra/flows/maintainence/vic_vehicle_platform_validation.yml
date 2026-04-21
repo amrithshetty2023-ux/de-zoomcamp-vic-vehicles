@@ -1,8 +1,8 @@
-id: vic_vehicle_ingest
+id: vic_vehicle_platform_validation
 namespace: zoomcamp.vic
 
 description: |
-  Victoria vehicle registration ingestion pipeline
+  Victoria vehicle registration platform validation pipeline
 
 variables:
   gcs_bucket: "dtc-de-course-capstone-2026-vic-vehicle-lake"

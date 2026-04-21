@@ -1,5 +1,23 @@
-id: monthly_vic_vehicle_ingest_v2
+id: monthly_vic_vehicle_ingest_scheduled
 namespace: zoomcamp.vic
+
+description: |
+  Orchestrates the monthly ingestion of Victoria vehicle registration data by
+  discovering the latest available CSV from the Transport Victoria open data
+  portal, downloading it, and landing it in the GCS raw zone.
+
+  Workflow behavior:
+    - Fetches the dataset page for monthly new vehicle registrations
+    - Extracts all valid monthly CSV download links from the page HTML
+    - Parses month and year from each filename to identify the newest file
+    - Downloads the latest CSV
+    - Uploads it to:
+        gs://dtc-de-course-capstone-2026-vic-vehicle-lake/raw/monthly_new_vehicle_registration/
+
+  This workflow serves as the scheduled monthly entry point for the Victoria
+  vehicle data pipeline, ensuring the most recent public dataset is reliably
+  delivered to the raw zone for downstream processing.
+
 
 variables:
   bucket: "dtc-de-course-capstone-2026-vic-vehicle-lake"

@@ -1,5 +1,27 @@
-id: vic_vehicle_backfill_single_file
+id: vic_vehicle_extract_single_file
 namespace: zoomcamp.vic
+
+description: |
+  Cleans and extracts a single historical Victoria vehicle registration file
+  into the GCS raw zone. Supports both direct CSV files and ZIP archives
+  containing multiple CSVs.
+
+  Workflow behavior:
+    • Downloads the source file from the provided URL
+    • Automatically detects whether the file is a ZIP or a CSV
+    • For ZIP archives:
+        - Extracts all files
+        - Identifies all CSVs inside the archive
+        - Cleans each CSV by removing blank rows and validating column counts
+        - Writes rejected rows to a separate file
+        - Uploads each cleaned CSV to the raw GCS bucket
+    • For direct CSV files:
+        - Cleans the CSV using the same validation logic
+        - Uploads the cleaned file to the raw GCS bucket
+
+  This workflow is intended for historical backfills and ensures all incoming
+  files are standardized before downstream ingestion into BigQuery.
+
 
 inputs:
   - id: file_url

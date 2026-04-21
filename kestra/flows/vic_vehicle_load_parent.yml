@@ -1,5 +1,24 @@
-id: vic_vehicle_backfill_parent
+id: vic_vehicle_load_parent
 namespace: zoomcamp.vic
+
+
+description: |
+  Orchestrates a full historical load of Victoria monthly vehicle
+  registration data by processing all cleaned CSV files stored in the GCS
+  raw zone.
+
+  Workflow behavior:
+    • Lists all CSV files under the configured GCS prefix
+    • Builds fully qualified gs:// URLs for each file
+    • Iterates through the list of files in sequence
+    • For each file, triggers the monthly ingestion workflow
+      (vic_vehicle_load_monthly_to_bq) and waits for completion
+
+  This workflow acts as the parent controller for historical backfills,
+  ensuring that every available monthly file is loaded into BigQuery using
+  the standard ingestion pipeline.
+
+
 
 inputs:
   - id: bucket

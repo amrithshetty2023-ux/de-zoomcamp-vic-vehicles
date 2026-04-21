@@ -263,7 +263,71 @@ Store the file locally or in a managed secret system, and mount it only when you
 
 
 ### Step 3 - Run Kestra Flow
+flowchart TD
 
+    %% ============================
+    %%   DATA SOURCE
+    %% ============================
+    A[Transport Victoria<br>Open Data Portal]:::source
+
+    %% ============================
+    %%   SCHEDULED MONTHLY INGEST
+    %% ============================
+    A --> B[monthly_vic_vehicle_ingest_scheduled<br>• Scrape dataset page<br>• Find latest CSV<br>• Download & upload to GCS]
+
+    B --> C[GCS Raw Zone<br>raw/monthly_new_vehicle_registration/]:::storage
+
+    %% ============================
+    %%   MONTHLY LOAD PIPELINE
+    %% ============================
+    C --> D[vic_vehicle_load_monthly_to_bq<br>• Parse filename<br>• Load → tmp table<br>• Append → raw table<br>• Rebuild staging]
+
+    D --> E[BigQuery<br>tmp / raw / staging tables]:::bq
+
+
+    %% ============================
+    %%   HISTORICAL EXTRACTION
+    %% ============================
+    A --> F[vic_vehicle_extract_2023_2026<br>• Extract all 2023–2026 ZIP/CSV URLs]
+
+    F --> G[vic_vehicle_extract_single_file<br>• Download ZIP/CSV<br>• Clean rows<br>• Upload cleaned CSVs]
+
+    G --> C
+
+
+    %% ============================
+    %%   BULK LOAD (PARENT)
+    %% ============================
+    C --> H[vic_vehicle_load_parent<br>• List all cleaned CSVs<br>• Run monthly loader for each]
+
+    H --> D
+
+
+    %% ============================
+    %%   PLATFORM VALIDATION
+    %% ============================
+    I[vic_vehicle_platform_validation<br>• Test GCS access<br>• Test BigQuery access]:::utility
+
+
+    %% ============================
+    %%   STYLES
+    %% ============================
+    classDef source fill:#f6d860,stroke:#b8860b,stroke-width:1px,color:#000;
+    classDef storage fill:#d0e6ff,stroke:#1e64c8,stroke-width:1px,color:#000;
+    classDef bq fill:#c8f7c5,stroke:#2e8b57,stroke-width:1px,color:#000;
+    classDef utility fill:#eee,stroke:#999,stroke-width:1px,color:#000;
+
+
+Run the following flows in Kestra ( Extraction and Load)
+1. ```javascript vic_vehicle_extract_2023_2026.yml ``` flow which loads all data from 2023 to current months ( March 2026)
+   This loads all data into GCS buckets (Data Lake) we created using terraform
+2. ```javascript vic_vehicle_load_parent.yml ``` flow which loads all data from GCS to BigQuery(Date Warehouse )
+
+Optional
+vic_vehicle_platform_validation.yml run to check GCS and BQ access is sorted. 
+
+
+![alt text](image-1.png)
 
 ### Step 4- Prepare Lookup Tables
 

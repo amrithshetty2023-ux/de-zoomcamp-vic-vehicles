@@ -1,5 +1,27 @@
-id: vic_vehicle_backfill_2023_2026
+id: vic_vehicle_extract_2023_2026
 namespace: zoomcamp.vic
+
+description: |
+  Performs a targeted historical extraction of Victoria monthly vehicle
+  registration data for the years 2023 through 2026 by discovering,
+  validating, and processing all relevant ZIP and CSV files published on the
+  Transport Victoria open data portal.
+
+  Workflow behavior:
+    • Fetches the dataset page containing all monthly vehicle registration files
+    • Extracts all valid download links (CSV or ZIP) from the HTML
+    • Selects the official 2023 and 2024 ZIP archives
+    • Identifies all matching 2025–2026 monthly CSV files
+    • Writes the complete list of backfill URLs to urls.json
+    • Iterates through each file and triggers the single‑file backfill workflow
+      (vic_vehicle_backfill_single_file), which handles cleaning and uploading
+      into the GCS raw zone
+
+  This workflow provides a reproducible and automated way to rebuild the
+  historical dataset for 2023–2026, ensuring all legacy files are collected,
+  cleaned, and prepared for downstream ingestion into BigQuery.
+
+
 
 variables:
   bucket: "dtc-de-course-capstone-2026-vic-vehicle-lake"
